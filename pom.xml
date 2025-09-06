@@ -65,30 +65,19 @@
 		<dependency>
 			<groupId>org.springframework.security</groupId>
 			<artifactId>spring-security-test</artifactId><project>
-  ...
-  <distributionManagement>
+  
+ <distributionManagement>
     <repository>
-      <id>my-nexus-repo</id>
-      <name>Internal Maven Releases</name>
-      <url>http://65.2.34.191:8081/repository/maven-releases/</url>
+        <id>my-nexus-repo</id>
+        <name>Internal Maven Releases</name>
+        <url>http://65.2.34.191:8081/repository/maven-releases/</url>
     </repository>
-  </distributionManagement>
-  ...
-</project>
-
-			<scope>test</scope>
-		</dependency>
-	</dependencies><project>
-  ...
-  <distributionManagement>
     <snapshotRepository>
-      <id>my-nexus-snapshots</id>
-      <name>Internal Maven Snapshots</name>
-      <url>http://65.2.34.191:8081/repository/maven-snapshots/</url>
+        <id>my-nexus-snapshots</id>
+        <name>Internal Maven Snapshots</name>
+        <url>http://65.2.34.191:8081/repository/maven-snapshots/</url>
     </snapshotRepository>
-  </distributionManagement>
-  ...
-</project>
+</distributionManagement>
 
 
 	<build>
