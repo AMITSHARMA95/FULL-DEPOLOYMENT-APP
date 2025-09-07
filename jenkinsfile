@@ -1,0 +1,116 @@
+pipeline {
+    agent any
+
+    tools {
+        maven "mvn"
+    }
+
+    environment {
+        SCANNER_HOME = tool "sonar-scanner"
+    }
+
+    stages {
+
+        stage('Git Checkout') {
+            steps {
+                echo "Starting Git Checkout..."
+                dir("${env.WORKSPACE}") {
+                    git branch: 'main', url: 'https://github.com/AMITSHARMA95/full-depoly.git'
+                }
+            }
+        }
+
+        stage('Build') {
+            steps {
+                echo "Starting Maven Build..."
+                sh "mvn clean install -DskipTests -Dspring.profiles.active=dev || true"
+            }
+        }
+
+        stage('Trivy File Scan') {
+            steps {
+                echo "Running Trivy File Scan..."
+                sh 'trivy fs --format table -o fs.html . || true'
+            }
+        }
+
+        stage('SonarQube Analysis') {
+            steps {
+                echo "Running SonarQube Analysis..."
+                withSonarQubeEnv('sonar') {
+                    sh """$SCANNER_HOME/bin/sonar-scanner \
+                        -Dsonar.projectKey=bankapp \
+                        -Dsonar.projectName=AmitDevProject \
+                        -Dsonar.java.binaries=target || true"""
+                }
+            }
+        }
+
+        stage('Deploy to Nexus') {
+            steps {
+                echo "Deploying to Nexus..."
+                withMaven(globalMavenSettingsConfig: 'amit-setting', maven: 'mvn', traceability: true) {
+                    sh "mvn deploy -DskipTests -Dspring.profiles.active=dev || true"
+                }
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                echo "Building Docker Image..."
+                script {
+                    withDockerRegistry(credentialsId: 'e5bcb047-e026-447f-bd26-33a1aa02ddc8') {
+                        sh "docker build -t amit/bankapp:latest . || true"
+                    }
+                }
+            }
+        }
+
+        stage('Trivy Image Scan') {
+            steps {
+                echo "Running Trivy Image Scan..."
+                sh 'trivy image --format table -o image.html amit/bankapp:latest || true'
+            }
+        }
+
+        stage('Push Docker Image') {
+            steps {
+                echo "Pushing Docker Image..."
+                script {
+                    withDockerRegistry(credentialsId: 'e5bcb047-e026-447f-bd26-33a1aa02ddc8') {
+                        sh "docker push amit/bankapp:latest || true"
+                    }
+                }
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                script {
+                    withKubeConfig(
+                        credentialsId: 'k8-token',
+                        serverUrl: 'https://3FAAA68368E98F103F62C29C8F80FA95.gr7.ap-south-1.eks.amazonaws.com'
+                    ) {
+                        echo "Deploying ds.yml to webapps namespace..."
+                        sh 'kubectl apply -f ds.yml -n webapps || true'
+                        sleep 30
+                        sh 'kubectl get pods -n webapps'
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            echo "Cleaning workspace..."
+            deleteDir()
+        }
+        success {
+            echo "Pipeline completed successfully!"
+        }
+        failure {
+            echo "Pipeline failed. Check logs."
+        }
+    }
+}
